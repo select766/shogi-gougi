@@ -130,4 +130,4 @@ dmypy.json
 
 # config files
 *.bat
-config*.json
+config*.yaml
