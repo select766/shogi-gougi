@@ -52,15 +52,16 @@ def usi_loop(commandline_args):
             if len(args) > 0 and args[0] == "ponder":
                 # ponder未対応
                 continue
-            # 今は制限時間は考えてなくて、ノード数制限で探索を終える
-            # go_args = {}
-            # args_queue = args.copy()
-            # while len(args_queue) > 0:
-            #     top = args_queue.pop(0)
-            #     if top in ["btime", "wtime", "byoyomi", "binc", "winc"]:
-            #         # 制限時間
-            #         go_args[top] = int(args_queue.pop(0))
-            bestmove = consultation.go(moves=last_position["moves"], sfen=last_position["sfen"])
+
+            # 持ち時間に関する引数
+            time_args = {}
+            args_queue = args.copy()
+            while len(args_queue) > 0:
+                top = args_queue.pop(0)
+                if top in ["btime", "wtime", "byoyomi", "binc", "winc"]:
+                    time_args[top] = int(args_queue.pop(0))
+
+            bestmove = consultation.go(moves=last_position["moves"], sfen=last_position["sfen"], time=time_args)
             usi_send(f"bestmove {bestmove}")
         elif command == "gameover":
             # cshogi.cliでの対局では勝敗が来ない

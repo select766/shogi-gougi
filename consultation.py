@@ -2,7 +2,8 @@
 from dataclasses import dataclass
 import json
 import math
-from typing import List, Optional
+from threading import Lock, Thread
+from typing import Any, Callable, Dict, List, Optional
 from cshogi.usi.Engine import Engine
 
 @dataclass
@@ -51,6 +52,18 @@ def consult(config, info: ConsultationInfo) -> ConsultationResult:
     else:
         raise ValueError("Unknown consult method")
 
+def run_go_in_thread(engine: Engine, moves: Optional[List[str]], sfen: Optional[str], time: Dict[str, int], lock: Lock, result_container: Any, result_container_idx: Any, pv_output_func: Optional[Callable]):
+    pvs = []
+    engine.position(moves=moves, sfen=sfen)
+    def listener(line):
+        pvs.append(line)
+        if pv_output_func is not None and line.startswith("info "):
+            pv_output_func(line)
+
+    bestmove, pondermove = engine.go(ponder=False, listener=listener, **time)
+    with lock:
+        result_container[result_container_idx]  = {"bestmove": bestmove, "pondermove": pondermove, "pvs": pvs}
+
 class Consultation:
     engines: List[Engine]
 
@@ -75,24 +88,45 @@ class Consultation:
     def usinewgame(self) -> None:
         for engine in self.engines:
             engine.usinewgame()
+    
+    def _go_no_consult(self, moves, sfen, time):
+        """
+        Engine1だけを動作させて指し手を返す
+        """
+        engine = self.engines[0]
+        engine.setoption("MultiPV", "1")
+        cont = [None]
+        t = Thread(target=run_go_in_thread, kwargs={"engine": engine, "moves": moves, "sfen": sfen, "time": time, "lock": Lock(), "result_container": cont, "result_container_idx": 0, "pv_output_func": self.usi_send})
+        t.start()
+        t.join()
+        bestmove = cont[0]["bestmove"]
+        return bestmove
 
-    def go(self, moves, sfen) -> str:
-        # 同時に動かすにはマルチスレッドがいる。今は逐次実行
+
+    def go(self, moves, sfen, time) -> str:
+        time_override = self.config["params"].get("time_override")
+        if time_override:
+            time = time_override
+
         engine_outputs = []
         move_count = len(moves) + 1 # 現在何手目か
         no_consult = move_count > self.config["params"]["max_move_count"]
-        for engine in self.engines:
-            if no_consult:
-                engine.setoption("MultiPV", "1")
-            pvs = []
-            engine.position(moves=moves, sfen=sfen)
-            bestmove, pondermove = engine.go(ponder=False, btime=0, wtime=0, byoyomi=1000000, listener=lambda x: pvs.append(x))
-            engine_outputs.append({"bestmove": bestmove, "pondermove": pondermove, "pvs": pvs})
-            if no_consult:
-                for pv in pvs:
-                    if pv.startswith("info "):
-                        self.usi_send(pv)
-                return bestmove
+
+        if no_consult:
+            return self._go_no_consult(moves, sfen, time)
+
+        engine_outputs = [None] * len(self.engines)
+        threads = []
+        lock = Lock()
+        # スレッドで同時に思考させる
+        for i, engine in enumerate(self.engines):
+            t = Thread(target=run_go_in_thread, kwargs={"engine": engine, "moves": moves, "sfen": sfen, "time": time, "lock": lock, "result_container": engine_outputs, "result_container_idx": i, "pv_output_func": self.usi_send if i == 0 else None})
+            t.start()
+            threads.append(t)
+        
+        for t in threads:
+            t.join()
+
         consult_info = self._extract_consultation_info(move_count, engine_outputs)
         self.usi_send(f"info string engine_outputs {json.dumps(engine_outputs)}")
         self.usi_send(f"info string engine0={engine_outputs[0]['bestmove']} engine1={engine_outputs[1]['bestmove']}")
