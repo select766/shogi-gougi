@@ -4,16 +4,17 @@ ponderは考えない(思考中にメッセージが来ることに対応しな�
 """
 
 import argparse
-import json
+import yaml
 import cshogi
-from cshogi.usi.Engine import Engine
+from consultation import Consultation
 
 def usi_send(msg: str):
     print(msg, flush=True)
 
 def usi_loop(commandline_args):
-    engine = None
+    consultation = None
     config = {}
+    last_position = None
     while True:
         try:
             msg_recv = input()
@@ -34,34 +35,36 @@ def usi_loop(commandline_args):
             option_name = args[1]
             option_value = " ".join(args[3:])
             if option_name == "optionfile":
-                with open(option_value) as f:
-                    config = json.load(f)
+                if consultation is None: # 2回目以降の対局では起動済みエンジンをそのまま使う
+                    with open(option_value) as f:
+                        config = yaml.safe_load(f)
+                        consultation = Consultation(config, usi_send)
         elif command == "isready":
-            if engine is None:
-                engine = Engine(config["engine"])
-            engine.isready()
+            consultation.isready()
             usi_send("readyok")
         elif command == "usinewgame":
-            engine.usinewgame()
+            consultation.usinewgame()
         elif command == "position":
             # position startpos
             # position startpos moves 7g7f 3c3d ...
-            engine.position(moves=args[2:], sfen="startpos")
+            last_position = {"moves": args[2:], "sfen": "startpos"}
         elif command == "go":
-            if args[0] == "ponder":
+            if len(args) > 0 and args[0] == "ponder":
                 # ponder未対応
                 continue
-            go_args = {}
-            args_queue = args.copy()
-            while len(args_queue) > 0:
-                top = args_queue.pop(0)
-                if top in ["btime", "wtime", "byoyomi", "binc", "winc"]:
-                    # 制限時間
-                    go_args[top] = int(args_queue.pop(0))
-            bestmove, ponder_move = engine.go(**go_args)
+            # 今は制限時間は考えてなくて、ノード数制限で探索を終える
+            # go_args = {}
+            # args_queue = args.copy()
+            # while len(args_queue) > 0:
+            #     top = args_queue.pop(0)
+            #     if top in ["btime", "wtime", "byoyomi", "binc", "winc"]:
+            #         # 制限時間
+            #         go_args[top] = int(args_queue.pop(0))
+            bestmove = consultation.go(moves=last_position["moves"], sfen=last_position["sfen"])
             usi_send(f"bestmove {bestmove}")
         elif command == "gameover":
-            engine.gameover(result=args[0])
+            # cshogi.cliでの対局では勝敗が来ない
+            consultation.gameover(result=args[0] if len(args) > 0 else None)
         else:
             usi_send(f"info string unknown command {command}")
 
@@ -70,7 +73,12 @@ def main():
     parser.add_argument("--name", default="usiproxy")
     parser.add_argument("--author", default="shogiaiauthor")
     args = parser.parse_args()
-    usi_loop(args)
+    try:
+        usi_loop(args)
+    except Exception as ex:
+        ex_str = repr(ex).replace('\n', '\\n')
+        usi_send(f"info string Error {ex_str}")
+        raise
 
 if __name__ == "__main__":
     main()
