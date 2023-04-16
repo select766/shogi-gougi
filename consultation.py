@@ -145,6 +145,23 @@ def run_go_in_thread(
         }
 
 
+def run_isready_thread(
+    engine_config: Any,
+    lock: Lock,
+    result_container: Any,
+    result_container_idx: Any,
+    ):
+        engine = Engine(cmd=engine_config["exe"])
+        for setoption_line in engine_config.get("option", "").split("\n"):
+            elems = setoption_line.strip().split(" ", 5)
+            if len(elems) < 5:
+                continue
+            engine.setoption(name=elems[2], value=elems[4])
+        engine.isready()
+        with lock:
+            result_container[result_container_idx] = engine
+
+
 class Consultation:
     engines: List[Engine]
 
@@ -155,16 +172,34 @@ class Consultation:
 
     def isready(self) -> None:
         if self.engines is None:
-            self.engines = []
-            for engine_config in self.config["engines"]:
-                engine = Engine(cmd=engine_config["exe"])
+            self.engines = [None] * len(self.config["engines"])
+            threads = []
+            lock = Lock()
+            # 同時に起動する必要があるためスレッドを用いる。
+            # iPadから2つのTCPコネクションを同時に張る仕様となっているため。
+            for i, engine_config in enumerate(self.config["engines"]):
+                t = Thread(
+                    target=run_isready_thread,
+                    kwargs={
+                        "engine_config": engine_config,
+                        "lock": lock,
+                        "result_container": self.engines,
+                        "result_container_idx": i,
+                    },
+                )
+                t.start()
+                threads.append(t)
+            for t in threads:
+                t.join()
+        else:
+            # setoptionをやり直す(一定手数以上でMultiPVが解除されているため)
+            for engine, engine_config in zip(self.engines, self.config["engines"]):
                 for setoption_line in engine_config.get("option", "").split("\n"):
                     elems = setoption_line.strip().split(" ", 5)
                     if len(elems) < 5:
                         continue
                     engine.setoption(name=elems[2], value=elems[4])
                 engine.isready()
-                self.engines.append(engine)
 
     def usinewgame(self) -> None:
         for engine in self.engines:
