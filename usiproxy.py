@@ -28,17 +28,21 @@ def usi_loop(commandline_args):
         elif command == "usi":
             usi_send(f"id name {commandline_args.name}")
             usi_send(f"id author {commandline_args.author}")
-            usi_send("option name optionfile type filename default <empty>")
+            # usi_send("option name optionfile type filename default <empty>")
+            # isreadyのタイミングでエンジンを起動数ると
+            with open(commandline_args.config) as f:
+                config = yaml.safe_load(f)
+                consultation = Consultation(config, usi_send)
             usi_send("usiok")
         elif command == "setoption":
             # setoption name USI_Ponder value true
             option_name = args[1]
             option_value = " ".join(args[3:])
-            if option_name == "optionfile":
-                if consultation is None: # 2回目以降の対局では起動済みエンジンをそのまま使う
-                    with open(option_value) as f:
-                        config = yaml.safe_load(f)
-                        consultation = Consultation(config, usi_send)
+            # if option_name == "optionfile":
+            #     if consultation is None: # 2回目以降の対局では起動済みエンジンをそのまま使う
+            #         with open(option_value) as f:
+            #             config = yaml.safe_load(f)
+            #             consultation = Consultation(config, usi_send)
         elif command == "isready":
             consultation.isready()
             usi_send("readyok")
@@ -71,6 +75,7 @@ def usi_loop(commandline_args):
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("config")
     parser.add_argument("--name", default="usiproxy")
     parser.add_argument("--author", default="shogiaiauthor")
     args = parser.parse_args()

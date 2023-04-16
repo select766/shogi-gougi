@@ -8,7 +8,7 @@
 ```
 @echo off 
 call C:\Users\xxx\Anaconda3\Scripts\activate.bat C:\Users\xxx\Anaconda3\envs\envname 
-python usiproxy.py | "C:\Program Files\Git\usr\bin\tee.exe" -a tee.log
+python usiproxy.py config.yaml | "C:\Program Files\Git\usr\bin\tee.exe" -a tee.log
 ```
 
 Macの例 (homebrew->anyenv->pyenv依存関係の場合)
@@ -20,10 +20,10 @@ eval $(/usr/local/bin/brew shellenv)
 eval "$(anyenv init -)"
 eval "$(pyenv init --path)"
 
-python usiproxy.py 2>>error.log | tee -a tee.log
+python usiproxy.py config.yaml 2>>error.log | tee -a tee.log
 ```
 
-エンジンオプションの `optionfile` で指定する設定ファイル
+YAML形式の設定ファイル
 
 ```yaml
 engines:
