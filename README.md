@@ -11,6 +11,18 @@ call C:\Users\xxx\Anaconda3\Scripts\activate.bat C:\Users\xxx\Anaconda3\envs\env
 python usiproxy.py | "C:\Program Files\Git\usr\bin\tee.exe" -a tee.log
 ```
 
+Macの例 (homebrew->anyenv->pyenv依存関係の場合)
+
+```sh
+#!/bin/sh
+
+eval $(/usr/local/bin/brew shellenv)
+eval "$(anyenv init -)"
+eval "$(pyenv init --path)"
+
+python usiproxy.py 2>>error.log | tee -a tee.log
+```
+
 エンジンオプションの `optionfile` で指定する設定ファイル
 
 ```yaml
