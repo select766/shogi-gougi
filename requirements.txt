@@ -1,0 +1,2 @@
+cshogi==0.4.8
+streamlit==1.21.0
