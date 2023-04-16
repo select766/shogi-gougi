@@ -18,6 +18,7 @@ class ConsultationInfo:
     moves: Optional[List[str]]
     sfen: str
     move_count: int
+    engine_bestmoves: List[str]
     engine_pvs: List[
         List[ConsultationPV]
     ]  # List[ConsultationPV]ではmultipv_rankの昇順（bestmoveが先頭）
@@ -62,6 +63,19 @@ def pv_to_winrate_dict(config, info: ConsultationInfo) -> List[Dict[str, float]]
     return score_dicts
 
 
+def make_move_only_consultation_result(move: str, info: ConsultationInfo) -> ConsultationResult:
+    return ConsultationResult(
+        bestmove=bestmove,
+        winrate=0.0,
+        comment={
+            "score_tuples": [],
+            "engine_score_dicts": [{}, {}],
+            "sfen": info.sfen,
+            "moves": info.moves,
+        },
+    )
+
+
 def consult(config, info: ConsultationInfo) -> ConsultationResult:
     method = config["params"]["method"]
     if method == "max_union":
@@ -74,6 +88,8 @@ def consult(config, info: ConsultationInfo) -> ConsultationResult:
                     merged_score_dict.get(move, -1.0), winrate
                 )
         score_tuples = list(merged_score_dict.items())
+        if len(score_tuples) == 0:
+            return make_move_only_consultation_result(info.engine_bestmoves[0], info)
         score_tuples.sort(key=lambda x: -x[1])  # スコア降順
         bestmove, winrate = score_tuples[0]
         return ConsultationResult(
@@ -102,6 +118,8 @@ def consult(config, info: ConsultationInfo) -> ConsultationResult:
                     + winrate * engine_weights[1]
                 )
         score_tuples = list(merged_score_dict.items())
+        if len(score_tuples) == 0:
+            return make_move_only_consultation_result(info.engine_bestmoves[0], info)
         score_tuples.sort(key=lambda x: -x[1])  # スコア降順
         bestmove, winrate = score_tuples[0]
         return ConsultationResult(
@@ -280,6 +298,7 @@ class Consultation:
         sfen: str,
     ) -> ConsultationInfo:
         engine_pvs = []
+        engine_bestmoves = []
         for engine_output in engine_outputs:
             # pvsの例。最後のmultipvだけを取り出す。setoptionでmultipv=1のときは"multipv *"の要素はない。
             """
@@ -297,6 +316,7 @@ class Consultation:
               "bestmove 8h7g ponder 8c8d"
             ]
             """
+            engine_bestmoves.append(engine_output["bestmove"])
             pvs = []  # type: List[ConsultationPV]
             for info_line in engine_output["pvs"][::-1]:
                 elems = info_line.split(" ")
@@ -366,7 +386,7 @@ class Consultation:
             engine_pvs.append(pvs)
 
         cinfo = ConsultationInfo(
-            engine_pvs=engine_pvs, move_count=move_count, moves=moves, sfen=sfen
+            engine_pvs=engine_pvs, engine_bestmoves=engine_bestmoves, move_count=move_count, moves=moves, sfen=sfen
         )
         return cinfo
 

@@ -69,9 +69,13 @@ def parse_consult_result(line, phs, context):
 
     # 最善手採択率更新
     context["consult_count"] += 1
-    if consult_obj["score_tuples"][0][0] == nnue_st[0][0]:
-        # NNUEの最善手と、合議結果の最上位（選ばれた手）が一致
-        context["nnue_best_chosen_count"] += 1
+    try:
+        if consult_obj["score_tuples"][0][0] == nnue_st[0][0]:
+            # NNUEの最善手と、合議結果の最上位（選ばれた手）が一致
+            context["nnue_best_chosen_count"] += 1
+    except:
+        # 合議が行われなかった時(PVが出なかった場合)
+        pass
     phs["nnue_best_ratio"].write(f'{int(context["nnue_best_chosen_count"] / context["consult_count"] * 100)}%')
 
 
