@@ -65,7 +65,7 @@ def pv_to_winrate_dict(config, info: ConsultationInfo) -> List[Dict[str, float]]
 
 def make_move_only_consultation_result(move: str, info: ConsultationInfo) -> ConsultationResult:
     return ConsultationResult(
-        bestmove=bestmove,
+        bestmove=move,
         winrate=0.0,
         comment={
             "score_tuples": [],
