@@ -76,7 +76,7 @@ def parse_consult_result(line, phs, context):
     except:
         # 合議が行われなかった時(PVが出なかった場合)
         pass
-    phs["nnue_best_ratio"].write(f'{int(context["nnue_best_chosen_count"] / context["consult_count"] * 100)}%')
+    phs["nnue_best_ratio"].write(f'NNUE最善手採択率 {int(context["nnue_best_chosen_count"] / context["consult_count"] * 100)}%')
 
 
 def process(f):
@@ -87,7 +87,6 @@ def process(f):
     phs["nnue"] = st.empty()
     st.write("DLの出力")
     phs["deep"] = st.empty()
-    st.write("NNUE最善手採択率")
     phs["nnue_best_ratio"] = st.empty()
     rl = ReadLine(f)
     context = CONTEXT_INIT.copy()
