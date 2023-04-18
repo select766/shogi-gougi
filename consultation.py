@@ -44,7 +44,10 @@ def winrate_to_score_cp_standard(winrate: float) -> int:
         score_cp = math.log(1.0 / winrate - 1.0) * -600.0
         return int(score_cp)
     except:
-        return 0
+        if winrate > 0.5:
+            return 32000
+        else:
+            return -32000
 
 
 def pv_to_winrate_dict(config, info: ConsultationInfo) -> List[Dict[str, float]]:
