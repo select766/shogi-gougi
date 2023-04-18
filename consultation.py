@@ -4,6 +4,7 @@ import math
 from threading import Lock, Thread
 from typing import Any, Callable, Dict, List, Optional
 from cshogi.usi.Engine import Engine
+from book import get_book_move
 
 
 @dataclass
@@ -248,6 +249,11 @@ class Consultation:
         engine_outputs = []
         move_count = len(moves) + 1  # 現在何手目か
         no_consult = move_count > self.config["params"]["max_move_count"]
+
+        book_move = get_book_move(moves, sfen)
+        if book_move is not None:
+            self.usi_send(f"info string book move")
+            return book_move
 
         if no_consult:
             return self._go_no_consult(moves, sfen, time)
